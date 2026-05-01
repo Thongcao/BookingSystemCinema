@@ -47,7 +47,7 @@ public class DataInitializer implements CommandLineRunner {
                 .address("116 Nguyen Du, District 1, Ho Chi Minh City")
                 .build());
 
-        log.info("   ✔ Created cinema: {}", cinema.getName());
+        log.info("   - Created cinema: {}", cinema.getName());
 
         // ── 3. Room ──
         Room room = roomRepository.save(Room.builder()
@@ -56,7 +56,7 @@ public class DataInitializer implements CommandLineRunner {
                 .totalSeats(50)
                 .build());
 
-        log.info("   ✔ Created room: {}", room.getName());
+        log.info("   - Created room: {}", room.getName());
 
         // ── 4. Seats (5 rows x 10 columns = 50 seats) ──
         List<Seat> seats = new ArrayList<>();
@@ -82,7 +82,7 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
         seatRepository.saveAll(seats);
-        log.info("   ✔ Created {} seats (rows A-E, 10 per row)", seats.size());
+        log.info("   - Created {} seats (rows A-E, 10 per row)", seats.size());
 
         // ── 5. Movies ──
         Movie movie1 = movieRepository.save(Movie.builder()
@@ -99,7 +99,7 @@ public class DataInitializer implements CommandLineRunner {
                 .posterUrl("https://placehold.co/300x450?text=LatMat8")
                 .build());
 
-        log.info("   ✔ Created {} movies", 2);
+        log.info("   - Created {} movies", 2);
 
         // ── 6. Showtimes ──
         LocalDateTime tomorrow = LocalDateTime.now().plusDays(1).withHour(19).withMinute(0).withSecond(0).withNano(0);
@@ -120,7 +120,7 @@ public class DataInitializer implements CommandLineRunner {
                 .basePrice(new BigDecimal("75000"))
                 .build());
 
-        log.info("   ✔ Created {} showtimes", 2);
+        log.info("   - Created {} showtimes", 2);
 
         // ── 7. F&B Items ──
         itemRepository.save(Item.builder().name("Popcorn (L)").price(new BigDecimal("55000")).type(ItemType.FOOD).build());
@@ -129,7 +129,7 @@ public class DataInitializer implements CommandLineRunner {
         itemRepository.save(Item.builder().name("Pepsi (M)").price(new BigDecimal("25000")).type(ItemType.BEVERAGE).build());
         itemRepository.save(Item.builder().name("Combo Couple").price(new BigDecimal("109000")).type(ItemType.COMBO).build());
 
-        log.info("   ✔ Created {} F&B items", 5);
+        log.info("   - Created {} F&B items", 5);
 
         // ── 8. Vouchers ──
         voucherRepository.save(Voucher.builder()
@@ -148,7 +148,7 @@ public class DataInitializer implements CommandLineRunner {
                 .usageLimit(50)
                 .build());
 
-        log.info("   ✔ Created {} vouchers", 2);
+        log.info("   - Created {} vouchers", 2);
         log.info(">>> Database seeding COMPLETE.");
     }
 
@@ -159,7 +159,7 @@ public class DataInitializer implements CommandLineRunner {
                     existingUser.setPassword(passwordEncoder.encode("123"));
                     existingUser.setRole(Role.ADMIN);
                     userRepository.save(existingUser);
-                    log.info("   ✔ Updated ADMIN password (BCrypt): admin");
+                    log.info("   - Updated ADMIN password (BCrypt): admin");
                 },
                 () -> {
                     userRepository.save(User.builder()
@@ -168,7 +168,7 @@ public class DataInitializer implements CommandLineRunner {
                             .email("admin@cinema.vn")
                             .role(Role.ADMIN)
                             .build());
-                    log.info("   ✔ Created ADMIN user: admin");
+                    log.info("   - Created ADMIN user: admin");
                 }
         );
 
@@ -178,7 +178,7 @@ public class DataInitializer implements CommandLineRunner {
                     existingUser.setPassword(passwordEncoder.encode("123"));
                     existingUser.setRole(Role.CUSTOMER);
                     userRepository.save(existingUser);
-                    log.info("   ✔ Updated CUSTOMER password (BCrypt): demo");
+                    log.info("   - Updated CUSTOMER password (BCrypt): demo");
                 },
                 () -> {
                     userRepository.save(User.builder()
@@ -187,7 +187,7 @@ public class DataInitializer implements CommandLineRunner {
                             .email("demo@gmail.com")
                             .role(Role.CUSTOMER)
                             .build());
-                    log.info("   ✔ Created CUSTOMER user: demo");
+                    log.info("   - Created CUSTOMER user: demo");
                 }
         );
     }

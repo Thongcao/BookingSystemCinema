@@ -106,7 +106,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         tickets.forEach(t -> t.setIsCheckedIn(false));
         ticketRepository.saveAll(tickets);
 
-        log.info("  ✅ [Webhook] Booking #{} → PAID. Code: {}", booking.getId(), booking.getBookingCode());
+        log.info("  [SUCCESS] [Webhook] Booking #{} → PAID. Code: {}", booking.getId(), booking.getBookingCode());
         return "PAID";
     }
 
@@ -116,7 +116,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
     private String handleLatePayment(Booking booking, String transactionId) {
         log.error("╔═══════════════════════════════════════════════════════════════╗");
-        log.error("║  ⚠️ [LATE PAYMENT] Booking #{} was CANCELLED by Scheduler    ║", booking.getId());
+        log.error("║  [WARNING] [LATE PAYMENT] Booking #{} was CANCELLED by Scheduler    ║", booking.getId());
         log.error("║  but payment gateway returned SUCCESS (txn: {})              ║", transactionId);
         log.error("║  Action: Creating NEEDS_REFUND transaction for manual review ║");
         log.error("╚═══════════════════════════════════════════════════════════════╝");
@@ -152,9 +152,9 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         if (booking.getStatus() == BookingStatus.HOLDING) {
             booking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(booking);
-            log.info("  ❌ [Webhook] Payment FAILED for Booking #{}. Status → CANCELLED", booking.getId());
+            log.info("  [FAILED] [Webhook] Payment FAILED for Booking #{}. Status → CANCELLED", booking.getId());
         } else {
-            log.info("  ❌ [Webhook] Payment FAILED for Booking #{} (already {}). Transaction recorded.",
+            log.info("  [FAILED] [Webhook] Payment FAILED for Booking #{} (already {}). Transaction recorded.",
                     booking.getId(), booking.getStatus());
         }
 
