@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="layout/header :: head"></th:block>
+    <style>
+        .screen {
+            background: linear-gradient(to bottom, #444, #111);
+            height: 50px;
+            width: 100%;
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+            box-shadow: 0 5px 15px rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 50px;
+            color: #888;
+            font-weight: bold;
+            letter-spacing: 5px;
+        }
+        .seat {
+            width: 35px;
+            height: 35px;
+            margin: 5px;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+            transition: transform 0.2s;
+        }
+        .seat:hover:not(.booked):not(.holding) {
+            transform: scale(1.1);
+        }
+        /* Seat Status Colors */
+        .seat.available { background-color: #444; }
+        .seat.selected { background-color: #0d6efd; border: 2px solid #fff; } /* Bootstrap Primary */
+        .seat.holding { background-color: #ffc107; color: #000; cursor: not-allowed; } /* Bootstrap Warning */
+        .seat.booked { background-color: #dc3545; cursor: not-allowed; } /* Bootstrap Danger */
+        .seat.maintenance { background-color: #6c757d; cursor: not-allowed; } /* Secondary */
+
+        /* Seat Types Border */
+        .seat.vip { border-bottom: 4px solid #f39c12; }
+        .seat.sweetbox { width: 80px; border-bottom: 4px solid #e84393; }
+
+        .seat-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .row-label {
+            width: 30px;
+            text-align: center;
+            font-weight: bold;
+            color: #aaa;
+        }
+        .summary-box {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <th:block th:replace="layout/header :: navbar"></th:block>
+
+    <!-- Store required variables for JS -->
+    <input type="hidden" id="showtimeId" th:value="${showtime.id}">
+    <input type="hidden" id="basePrice" th:value="${showtime.basePrice}">
+
+    <div class="container mt-4 mb-5">
+        <div class="row">
+            <!-- Seat Map Area -->
+            <div class="col-lg-8 mb-4">
+                <div class="summary-box">
+                    <h4 class="mb-3">
+                        <span th:text="${showtime.movieTitle}">Movie</span> - 
+                        <span th:text="${#temporals.format(showtime.startTime, 'HH:mm dd/MM')}">Time</span>
+                    </h4>
+                    <p class="text-muted mb-4"><i class="fas fa-map-marker-alt me-2"></i><span th:text="${showtime.cinemaName + ' - ' + showtime.roomName}">Location</span></p>
+
+                    <!-- Legend -->
+                    <div class="d-flex justify-content-center gap-4 mb-4 small">
+                        <div class="d-flex align-items-center"><div class="seat available m-0 me-2" style="width:20px;height:20px;"></div> Available</div>
+                        <div class="d-flex align-items-center"><div class="seat selected m-0 me-2" style="width:20px;height:20px;"></div> Selected</div>
+                        <div class="d-flex align-items-center"><div class="seat holding m-0 me-2" style="width:20px;height:20px;"></div> Holding (Others)</div>
+                        <div class="d-flex align-items-center"><div class="seat booked m-0 me-2" style="width:20px;height:20px;"></div> Booked</div>
+                    </div>
+
+                    <div class="screen">SCREEN</div>
+                    
+                    <div id="seatMapContainer" class="text-center overflow-auto pb-3">
+                        <!-- Seat Map Grid will be rendered here by JS -->
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checkout Area -->
+            <div class="col-lg-4">
+                <div class="summary-box sticky-top" style="top: 20px;">
+                    <h4 class="border-bottom border-secondary pb-2 mb-3">Booking Summary</h4>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Selected Seats</label>
+                        <div id="selectedSeatsList" class="d-flex flex-wrap gap-2">
+                            <em class="text-secondary small">No seats selected</em>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">F&B Items</label>
+                        <div class="d-flex flex-column gap-2" style="max-height: 200px; overflow-y: auto;">
+                            <div th:each="item : ${items}" class="d-flex justify-content-between align-items-center bg-dark p-2 rounded">
+                                <div>
+                                    <span th:text="${item.name}">Popcorn</span><br>
+                                    <small class="text-primary" th:text="${item.price + ' VND'}">50000</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary item-btn" th:attr="onclick=|updateItem(${item.id}, ${item.price}, -1)|">-</button>
+                                    <span th:id="'item-qty-' + ${item.id}" class="item-qty">0</span>
+                                    <button class="btn btn-sm btn-outline-secondary item-btn" th:attr="onclick=|updateItem(${item.id}, ${item.price}, 1)|">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Voucher Code</label>
+                        <div class="input-group">
+                            <input type="text" id="voucherCode" class="form-control bg-dark text-white border-secondary" placeholder="Enter code">
+                        </div>
+                    </div>
+
+                    <hr class="border-secondary">
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tickets:</span>
+                        <span id="ticketTotal" class="fw-bold">0 VND</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>F&B:</span>
+                        <span id="itemTotal" class="fw-bold">0 VND</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3 fs-5 text-primary fw-bold">
+                        <span>Total:</span>
+                        <span id="grandTotal">0 VND</span>
+                    </div>
+
+                    <button id="btnCheckout" class="btn btn-primary w-100 py-2 fw-bold" onclick="checkout()" disabled>
+                        PROCEED TO PAYMENT
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Toast Positioned -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="liveToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">
+                    Error message here.
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="margin-bottom: 60px;">
+        <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="successToastMessage">
+                    Success message here.
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="layout/footer :: footer"></th:block>
+
+    <script>
+        const showtimeId = document.getElementById('showtimeId').value;
+        const basePrice = parseFloat(document.getElementById('basePrice').value);
+
+        // Auth from localStorage (JWT login)
+        const userId = localStorage.getItem('user_id') || '0';
+        const jwtToken = localStorage.getItem('jwt_token');
+        
+        let selectedSeatsMap = new Map(); // seatId -> seatData
+        let selectedItemsMap = new Map(); // itemId -> quantity
+        
+        let ticketSubtotal = 0;
+        let itemSubtotal = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSeatMap();
+            // Refresh seat map every 10 seconds to show holding status live
+            setInterval(loadSeatMap, 10000); 
+        });
+
+        function showToast(message, isError = true) {
+            const toastEl = document.getElementById(isError ? 'liveToast' : 'successToast');
+            document.getElementById(isError ? 'toastMessage' : 'successToastMessage').innerText = message;
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+        }
+
+        async function loadSeatMap() {
+            try {
+                const response = await fetch(`/api/public/showtimes/${showtimeId}/seat-map?userId=${userId}`);
+                const resData = await response.json();
+                
+                if (resData.status === 'success') {
+                    renderSeatMap(resData.data.seatMap);
+                } else {
+                    showToast(resData.message);
+                }
+            } catch (error) {
+                console.error('Error loading seat map:', error);
+            }
+        }
+
+        function renderSeatMap(seats) {
+            const container = document.getElementById('seatMapContainer');
+            container.innerHTML = '';
+
+            // Group by row
+            const rows = {};
+            seats.forEach(seat => {
+                if (!rows[seat.seatRow]) {
+                    rows[seat.seatRow] = [];
+                }
+                rows[seat.seatRow].push(seat);
+            });
+
+            // Sort rows alphabetically
+            const sortedRowKeys = Object.keys(rows).sort();
+
+            sortedRowKeys.forEach(rowKey => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'seat-row';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'row-label';
+                labelDiv.innerText = rowKey;
+                rowDiv.appendChild(labelDiv);
+
+                // Sort seats by number
+                rows[rowKey].sort((a, b) => a.seatNumber - b.seatNumber).forEach(seat => {
+                    const seatDiv = document.createElement('div');
+                    seatDiv.innerText = seat.seatNumber;
+                    
+                    // Determine classes
+                    let classNames = ['seat', seat.type.toLowerCase()];
+                    let isClickable = false;
+
+                    if (selectedSeatsMap.has(seat.seatId)) {
+                        classNames.push('selected');
+                        isClickable = true;
+                    } else if (seat.status === 'AVAILABLE') {
+                        classNames.push('available');
+                        isClickable = true;
+                    } else if (seat.status === 'HOLDING') {
+                        // Check if held by ME
+                        if (seat.heldByUserId == userId) {
+                            classNames.push('selected');
+                            isClickable = true;
+                            // Add to selected map if not there (e.g. page reload)
+                            if (!selectedSeatsMap.has(seat.seatId)) {
+                                addSeatToSelection(seat);
+                            }
+                        } else {
+                            classNames.push('holding');
+                        }
+                    } else {
+                        classNames.push(seat.status.toLowerCase()); // booked, maintenance
+                    }
+
+                    seatDiv.className = classNames.join(' ');
+                    
+                    if (isClickable) {
+                        seatDiv.onclick = () => handleSeatClick(seat, seatDiv);
+                    }
+                    
+                    // Tooltip for surcharge info
+                    let title = `Row ${seat.seatRow} - ${seat.seatNumber} (${seat.type})`;
+                    if (seat.surcharge > 0) title += `\nSurcharge: +${seat.surcharge}`;
+                    seatDiv.title = title;
+
+                    rowDiv.appendChild(seatDiv);
+                });
+
+                container.appendChild(rowDiv);
+            });
+            
+            updateTotals();
+        }
+
+        async function handleSeatClick(seat, element) {
+            const isSelected = selectedSeatsMap.has(seat.seatId);
+            
+            if (isSelected) {
+                // RELEASE
+                try {
+                    const req = { userId: userId, seatIds: [seat.seatId] };
+                    const res = await fetch(`/api/public/showtimes/${showtimeId}/release-seats`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(req)
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        selectedSeatsMap.delete(seat.seatId);
+                        element.classList.remove('selected');
+                        element.classList.add('available');
+                        updateTotals();
+                    }
+                } catch (e) {
+                    console.error('Release failed', e);
+                }
+            } else {
+                // HOLD
+                try {
+                    const req = { userId: userId, seatIds: [seat.seatId] };
+                    const res = await fetch(`/api/public/showtimes/${showtimeId}/hold-seats`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(req)
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        addSeatToSelection(seat);
+                        element.classList.remove('available');
+                        element.classList.add('selected');
+                    } else {
+                        showToast(data.message || 'Seat is already locked by someone else!');
+                        loadSeatMap(); // Refresh to get latest
+                    }
+                } catch (e) {
+                    showToast('Failed to lock seat');
+                }
+            }
+        }
+
+        function addSeatToSelection(seat) {
+            // Default ticket type is ADULT. Surcharge logic handles price increase.
+            const price = basePrice + seat.surcharge;
+            selectedSeatsMap.set(seat.seatId, { ...seat, calculatedPrice: price, ticketType: 'ADULT' });
+            updateTotals();
+        }
+
+        function updateItem(itemId, price, change) {
+            let currentQty = selectedItemsMap.get(itemId) || 0;
+            currentQty += change;
+            
+            if (currentQty < 0) currentQty = 0;
+            
+            if (currentQty === 0) {
+                selectedItemsMap.delete(itemId);
+            } else {
+                selectedItemsMap.set(itemId, currentQty);
+            }
+            
+            document.getElementById(`item-qty-${itemId}`).innerText = currentQty;
+            
+            // Recalculate item subtotal
+            itemSubtotal = 0;
+            selectedItemsMap.forEach((qty, id) => {
+                // We passed price directly
+                itemSubtotal += qty * price;
+            });
+            updateTotalsDisplay();
+        }
+
+        function updateTotals() {
+            // Update UI list
+            const listEl = document.getElementById('selectedSeatsList');
+            if (selectedSeatsMap.size === 0) {
+                listEl.innerHTML = '<em class="text-secondary small">No seats selected</em>';
+                ticketSubtotal = 0;
+            } else {
+                listEl.innerHTML = '';
+                ticketSubtotal = 0;
+                
+                selectedSeatsMap.forEach((seatData) => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-primary fs-6';
+                    badge.innerText = `${seatData.seatRow}${seatData.seatNumber}`;
+                    listEl.appendChild(badge);
+                    
+                    ticketSubtotal += seatData.calculatedPrice;
+                });
+            }
+            
+            updateTotalsDisplay();
+        }
+        
+        function updateTotalsDisplay() {
+            document.getElementById('ticketTotal').innerText = ticketSubtotal.toLocaleString() + ' VND';
+            document.getElementById('itemTotal').innerText = itemSubtotal.toLocaleString() + ' VND';
+            document.getElementById('grandTotal').innerText = (ticketSubtotal + itemSubtotal).toLocaleString() + ' VND';
+            
+            document.getElementById('btnCheckout').disabled = selectedSeatsMap.size === 0;
+        }
+
+        async function checkout() {
+            // Gate: Must be logged in to checkout
+            if (!jwtToken) {
+                const currentUrl = encodeURIComponent(window.location.pathname);
+                window.location.href = '/login?returnUrl=' + currentUrl;
+                return;
+            }
+
+            const btn = document.getElementById('btnCheckout');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            
+            // Prepare Request
+            const seatsReq = Array.from(selectedSeatsMap.values()).map(s => ({
+                seatId: s.seatId,
+                ticketType: s.ticketType
+            }));
+            
+            const itemsReq = Array.from(selectedItemsMap.entries()).map(([itemId, qty]) => ({
+                itemId: itemId,
+                quantity: qty
+            }));
+            
+            const voucherCode = document.getElementById('voucherCode').value;
+            
+            const payload = {
+                showtimeId: showtimeId,
+                seats: seatsReq,
+                items: itemsReq,
+                voucherCode: voucherCode
+            };
+            
+            try {
+                const res = await fetch('/api/public/bookings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + jwtToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast('Booking Successful! TxnId: ' + data.data.paymentTransactionId, false);
+                    // Redirect to home after 2 secs
+                    setTimeout(() => window.location.href = '/', 2000);
+                } else {
+                    showToast(data.message || 'Checkout failed');
+                    btn.disabled = false;
+                    btn.innerHTML = 'PROCEED TO PAYMENT';
+                    loadSeatMap(); // Refresh map in case of conflicts
+                }
+            } catch (e) {
+                showToast('An error occurred during checkout');
+                btn.disabled = false;
+                btn.innerHTML = 'PROCEED TO PAYMENT';
+            }
+        }
+    </script>
+</body>
+</html>

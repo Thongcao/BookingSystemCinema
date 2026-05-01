@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="layout/header :: head"></th:block>
+    <style>
+        .auth-card {
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 420px;
+            margin: 0 auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .auth-card .form-control {
+            background-color: #333;
+            border: 1px solid #444;
+            color: #f8f9fa;
+        }
+        .auth-card .form-control:focus {
+            background-color: #3a3a3a;
+            border-color: #e50914;
+            box-shadow: 0 0 0 0.2rem rgba(229,9,20,0.25);
+            color: #f8f9fa;
+        }
+        .auth-card .form-label {
+            color: #aaa;
+            font-weight: 500;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            color: #666;
+            margin: 20px 0;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #444;
+        }
+        .divider::before { margin-right: 10px; }
+        .divider::after { margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <th:block th:replace="layout/header :: navbar"></th:block>
+
+    <div class="container mt-5">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <i class="fas fa-user-circle fa-3x text-primary mb-3"></i>
+                <h3>Sign In</h3>
+                <p class="text-muted small">Login to book your favourite movies</p>
+            </div>
+
+            <div id="alertBox" class="alert alert-danger d-none" role="alert"></div>
+
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-user"></i></span>
+                        <input type="text" class="form-control" id="username" placeholder="Enter username" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-lock"></i></span>
+                        <input type="password" class="form-control" id="password" placeholder="Enter password" required>
+                    </div>
+                </div>
+                <button type="submit" id="btnLogin" class="btn btn-primary w-100 py-2 fw-bold">
+                    <i class="fas fa-sign-in-alt me-2"></i>LOGIN
+                </button>
+            </form>
+
+            <div class="divider">or</div>
+
+            <div class="text-center">
+                <p class="text-muted mb-0">Don't have an account?
+                    <a href="/register" class="text-primary text-decoration-none fw-bold">Register here</a>
+                </p>
+            </div>
+    </div>
+
+    <th:block th:replace="layout/footer :: footer"></th:block>
+
+    <script>
+        // If already logged in, redirect
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const alertBox = document.getElementById('alertBox');
+            alertBox.classList.add('d-none');
+
+            const btn = document.getElementById('btnLogin');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Logging in...';
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.data) {
+                    // Store JWT and user info in localStorage
+                    localStorage.setItem('jwt_token', data.data.token);
+                    localStorage.setItem('user_id', data.data.userId);
+                    localStorage.setItem('username', data.data.username);
+                    localStorage.setItem('user_role', data.data.role);
+
+                    // Redirect to home (or the page they came from)
+                    const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+                    window.location.href = returnUrl || '/';
+                } else {
+                    alertBox.textContent = data.message || 'Login failed';
+                    alertBox.classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>LOGIN';
+                }
+            } catch (err) {
+                alertBox.textContent = 'Connection error. Please try again.';
+                alertBox.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>LOGIN';
+            }
+        }
+    </script>
+</body>
+</html>

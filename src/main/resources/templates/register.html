@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="layout/header :: head"></th:block>
+    <style>
+        .auth-card {
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 420px;
+            margin: 0 auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .auth-card .form-control {
+            background-color: #333;
+            border: 1px solid #444;
+            color: #f8f9fa;
+        }
+        .auth-card .form-control:focus {
+            background-color: #3a3a3a;
+            border-color: #e50914;
+            box-shadow: 0 0 0 0.2rem rgba(229,9,20,0.25);
+            color: #f8f9fa;
+        }
+        .auth-card .form-label {
+            color: #aaa;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <th:block th:replace="layout/header :: navbar"></th:block>
+
+    <div class="container mt-5">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                <h3>Create Account</h3>
+                <p class="text-muted small">Join us and start booking movies</p>
+            </div>
+
+            <div id="alertBox" class="alert d-none" role="alert"></div>
+
+            <form id="registerForm" onsubmit="return handleRegister(event)">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-user"></i></span>
+                        <input type="text" class="form-control" id="username" placeholder="Choose a username" minlength="3" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-envelope"></i></span>
+                        <input type="email" class="form-control" id="email" placeholder="your@email.com" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-lock"></i></span>
+                        <input type="password" class="form-control" id="password" placeholder="Min 3 characters" minlength="3" required>
+                    </div>
+                </div>
+                <button type="submit" id="btnRegister" class="btn btn-primary w-100 py-2 fw-bold">
+                    <i class="fas fa-user-plus me-2"></i>REGISTER
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <p class="text-muted mb-0">Already have an account?
+                    <a href="/login" class="text-primary text-decoration-none fw-bold">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="layout/footer :: footer"></th:block>
+
+    <script>
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const alertBox = document.getElementById('alertBox');
+            alertBox.classList.add('d-none');
+
+            const btn = document.getElementById('btnRegister');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating account...';
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.data) {
+                    localStorage.setItem('jwt_token', data.data.token);
+                    localStorage.setItem('user_id', data.data.userId);
+                    localStorage.setItem('username', data.data.username);
+                    localStorage.setItem('user_role', data.data.role);
+
+                    alertBox.className = 'alert alert-success';
+                    alertBox.textContent = 'Registration successful! Redirecting...';
+                    alertBox.classList.remove('d-none');
+
+                    setTimeout(() => window.location.href = '/', 1000);
+                } else {
+                    alertBox.className = 'alert alert-danger';
+                    alertBox.textContent = data.message || 'Registration failed';
+                    alertBox.classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-user-plus me-2"></i>REGISTER';
+                }
+            } catch (err) {
+                alertBox.className = 'alert alert-danger';
+                alertBox.textContent = 'Connection error. Please try again.';
+                alertBox.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-user-plus me-2"></i>REGISTER';
+            }
+        }
+    </script>
+</body>
+</html>
